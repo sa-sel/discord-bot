@@ -71,6 +71,22 @@ class Counters(commands.Cog):
         )
         await utils.react_response(response, ["🍲", "🥫"])
 
+    @commands.command(brief="O Sumiço ataca novamente...", help="Testa aí.")
+    async def sumiçada(self, ctx):
+        await ctx.trigger_typing()
+        logger.info("`>sumiçada` command called.")
+
+        await utils.react_message(ctx.message, [utils.MESSAGE_EMOJI])
+
+        # increments that counter and saves it to the db
+        self.counters["sumicadas"] += 1
+        self.update_counters()
+
+        response = await ctx.send(
+            "**DROGA! É O SUMIÇO!** O Sumiço (ou algum outro engraçadinho) "
+            f'já fizeram um total de `{self.counters["sumicadas"]}` sumiçadas.'
+        )
+        await utils.react_response(response, ["🤣", "😝", "😜", "😳"])
 
 def setup(bot):
     bot.add_cog(Counters(bot))
