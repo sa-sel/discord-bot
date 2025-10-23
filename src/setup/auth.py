@@ -53,7 +53,6 @@ if not os.path.isfile("./credentials.json"):
 
 # Use creds to create a client to interact with the Google Drive API
 __scopes = [
-    "https://spreadsheets.google.com/feeds",
     "https://www.googleapis.com/auth/spreadsheets",
     "https://www.googleapis.com/auth/drive.file",
     "https://www.googleapis.com/auth/drive",
