@@ -125,7 +125,11 @@ def get_images(links: list[str]) -> list[str]:
         except requests.ConnectionError or requests.HTTPError or requests.Timeout or requests.TooManyRedirects:
             logger.exception(f"There was an error with the image link: {url}", 2)
         else:
-            filename = f"./images/tmp-{i}.png"
+            if url.endswith('png') or url.endswith('jpg') or url.endswith('jpeg'):
+                filename = f"./images/tmp-{i}.png"
+            elif url.endswith('gif'):
+                filename = f"./images/tmp-{i}.gif"
+
             images.append(filename)
 
             with open(filename, "wb") as f:
