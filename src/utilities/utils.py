@@ -107,7 +107,7 @@ def get_images(links: list[str]) -> list[str]:
     -------
     list[str]: paths to downloaded images
     """
-    links = [url for url in links if url.startswith("http")]
+    links = [url for url in links if url.startswith("https")]
     images = []
 
     if not os.path.isdir("./images"):
@@ -119,7 +119,9 @@ def get_images(links: list[str]) -> list[str]:
             break
 
         try:
-            r = requests.get(url)
+            # Now imgur prevent acess from http(s) requests with python-requests agent, so we will fake multiple Browser agents
+            headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'}
+            r = requests.get(url, headers=headers)
         except requests.ConnectionError or requests.HTTPError or requests.Timeout or requests.TooManyRedirects:
             logger.exception(f"There was an error with the image link: {url}", 2)
         else:
