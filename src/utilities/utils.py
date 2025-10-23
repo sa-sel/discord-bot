@@ -312,8 +312,14 @@ def parse_sheet_boolean(v: str):
 
 def get_words() -> list[str]:
     """Get a list of words from a portuguese online dictionary's website."""
-    r = requests.get("https://www.dicionarioinformal.com.br/")
+    r = requests.get("https://www.dicionarioinformal.com.br/top20/")
     soup = BeautifulSoup(r.text, "html.parser")
-    divs = soup.find("div", class_="col-sm-12 col-md-4")
-    words = divs.findAll("span") if divs and type(divs) is Tag else []
+    divs = soup.find("div", class_="a_cinza definicoes")
+    divs.append(soup.find("div", class_="a_cinza sinonimos"))
+    divs.append(soup.find("div", class_="a_cinza antonimos"))
+    divs.append(soup.find("div", class_="a_cinza relacionadas"))
+    divs.append(soup.find("div", class_="a_cinza exemplos"))
+    divs.append(soup.find("div", class_="a_cinza rimas"))
+    divs.append(soup.find("div", class_="a_cinza reversa"))
+    words = divs.findAll("a") if divs and type(divs) is Tag else []
     return [word.text for word in words]
