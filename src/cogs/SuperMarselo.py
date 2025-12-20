@@ -1,8 +1,10 @@
 import random
+import re
 from asyncio import sleep
 
 from discord import File
 from discord.ext import commands
+from playwright.async_api import async_playwright
 
 from utilities import logger, utils
 
@@ -17,11 +19,17 @@ class SuperMarselo(commands.Cog):
         brief="Separa os times pro famigerado.",
         help=(
             "Esse comando separa dois times para jogar codenames, já "
-            "selecionando quem vai ser o spymaster de cada time.\n\nÉ necessário estar conectado a um canal de voz com pelo "
+            "selecionando quem vai ser o spymaster de cada time.\n\nSe você "
+            "quiser, ele pode, ainda, criar uma sala de Codenames e enviar o "
+            "link. Para isso, adicione um dos argumentos a seguir: "
+            '"$createRoom=true", "$createRoom", "True", "createRoom", '
+            '"criarSala", "link", "URL", "URI".\ne.g.: ">codenames '
+            '$createRoom=True", ou ">codenames True", ou ">codenames link", '
+            "etc.\n\nÉ necessário estar conectado a um canal de voz com pelo "
             "menos mais três pessoas para ativar esse comando."
         ),
     )
-    async def codenames(self, ctx):
+    async def codenames(self, ctx, createRoom=None):
         """Create a Codenames room."""
         await ctx.trigger_typing()
         logger.info("`>codenames` command called.")
@@ -43,6 +51,17 @@ class SuperMarselo(commands.Cog):
         else:
             await utils.react_message(ctx.message, ["🎲", "🎮", "🏏", "🕹️"])
 
+        createRoom = createRoom and createRoom.lower() in [
+            "$createroom=true",
+            "$createroom",
+            "true",
+            "createroom",
+            "criarsala",
+            "link",
+            "url",
+            "uri",
+        ]
+
         logger.info(f"{len(members)} members are present.", 2)
         logger.info(f'A room will {"" if createRoom else "not"} be created.', 2)
 
@@ -63,15 +82,131 @@ class SuperMarselo(commands.Cog):
 
         logger.info("The teams were created.", 2)
 
-        response = await ctx.send(
-            "`TÁ NA HORA DO CODENAMES GAROTADA`\n\n"
-            + f"**Time azul**  🔵:\n__*Spymaster*__: {blueSpymaster}\n"
-            + f'__*Operatives*__: {", ".join(blueOperatives)}\n\n**Time '
-            + f"vermelho**  🔴:\n__*Spymaster*__: {redSpymaster}\n"
-            + f'__*Operatives*__: {", ".join(redOperatives)}\n\n'
-            + "Que vença o melhor time!"
-        )
-        await utils.react_response(response)
+        try:
+            async with async_playwright() as p:
+                if createRoom:
+                    logger.info("A room is being created.", 2)
+
+                    logger.info("Opening the website...", 2)
+
+                    browser = await p.chromium.launch(headless=True)
+                    page = await browser.new_page()
+                    await page.goto("https://codenames.game/")
+
+                    await ctx.trigger_typing()
+                    logger.info("Waiting for the website to load...", 2)
+
+                    await page.wait_for_selector("#nickname")
+                    await page.fill("#nickname", "A Voz da SA-SEL")
+                    await page.click('button[type="submit"]')
+
+                    logger.info("Setting up the game...", 2)
+
+                    await page.wait_for_url("**/r/*")
+
+                    word_packs_button = await page.wait_for_selector("button:has-text('Word Packs'), button:has-text('Pacotes de palavras')")
+                    await word_packs_button.click()
+                    
+                    word_language_button = await page.wait_for_selector("button:has-text('Word Language'), button:has-text('Idioma das palavras')")
+                    await word_language_button.click()
+
+                    await page.wait_for_selector("text=Português (Brasil)")
+                    await page.locator("text=Português (Brasil)").scroll_into_view_if_needed()
+                    await page.get_by_text("Português (Brasil)", exact=True).click()
+
+                    await page.get_by_role("button", name=re.compile(r"aprovar|approve", re.I)).click()
+
+                    logger.info("Português (Brasil) word package selected!", 2)
+
+                    await page.get_by_role("button", name=re.compile(r"iniciar jogo|start game", re.I)).click()
+
+                    logger.info("Waiting for the room to be created...", 2)
+
+                    await page.wait_for_selector("div > article:nth-child(25)")
+
+                    roomURL = page.url
+                else:
+                    roomURL = None
+                    browser = None
+
+                response = await ctx.send(
+                    "`TÁ NA HORA DO CODENAMES GAROTADA`\n\n"
+                    + (f"**Link da sala**: {roomURL}\n\n" if roomURL else "")
+                    + f"**Time azul**  🔵:\n__*Spymaster*__: {blueSpymaster}\n"
+                    + f'__*Operatives*__: {", ".join(blueOperatives)}\n\n**Time '
+                    + f"vermelho**  🔴:\n__*Spymaster*__: {redSpymaster}\n"
+                    + f'__*Operatives*__: {", ".join(redOperatives)}\n\n'
+                    + "Que vença o melhor time!"
+                )
+                await utils.react_response(response)
+
+                # if a room was created, the bot needs
+                # to leave it after someone entered
+                await sleep(120)
+                await ctx.trigger_typing()
+
+                try:
+                    people = (
+                        [blueSpymaster] + blueOperatives + [redSpymaster] + redOperatives
+                    )
+
+                    try:
+                        logger.info("Searching for new game hosts...", 2)
+
+                        await page.get_by_role("button", name="Admin").click()
+                        
+                        players = []
+
+                        # Seleciona todos os players
+                        playerSelectors = await page.locator('div[data-radix-scroll-area-viewport] section div[type="button"]').all()
+
+                        for player in playerSelectors:
+                            nome_div = player.locator('div.overflow-hidden.whitespace-nowrap.leading-none.text-center')
+                            if await nome_div.count() == 0:
+                                continue
+                            nome = (await nome_div.inner_text()).strip()
+
+                            if nome.lower() == "a voz da sa-sel":
+                                continue
+
+                            players.append((player, nome))
+
+                        newHostElement, newHostName = random.choice(players)
+
+                        if players:
+                            await newHostElement.click()
+                            await page.get_by_role("button", name=re.compile(r"promover|promote", re.I)).click()
+                            logger.info(f"Player {newHostName} was promoted to host...", 2)
+                        else:
+                            logger.info("No player was found to be promoted...", 2)
+                    except Exception:
+                        # await page.screenshot(path="codenames/debug_screenshot.png")
+                        response = await ctx.send(
+                            f"Alô, {ctx.author.mention}! Eu vou sair da sala, mas como ninguém mais entrou, a sala vai ficar sem host. "
+                            f'Se quiserem que crie outra sala depois, é só chamar.\n\ncc: {" ".join(people)}'
+                        )
+                    else:
+                        response = await ctx.send(
+                            f'Alô, {ctx.author.mention}! Eu vou sair da sala, agora **o novo host é o `{newHostName}`**.\n\ncc: {" ".join(people)}'
+                        )
+                    finally:
+                        await utils.react_response(response)
+
+                    logger.info("Leaving game...", 2)
+                    await page.get_by_role("button", name=re.compile(r"configurações|settings", re.I)).click()
+
+                    scroll_container = await page.wait_for_selector("div[data-radix-scroll-area-viewport]")
+                    await scroll_container.evaluate("(el) => { el.scrollTop = el.scrollHeight; }")
+                    
+                    await page.get_by_role("button", name=re.compile(r"sair da partida|leave match", re.I)).click()
+                finally:
+                        await sleep(5)
+                        await browser.close()
+                        logger.info("Browser closed...", 2)
+        except Exception as e:
+            await sleep(5)
+            await browser.close()
+            logger.error(f"Erro ao criar sala: {e}")
 
     @commands.command(brief="Press F to pay respects.")
     async def F(self, ctx):
