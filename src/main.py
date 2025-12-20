@@ -18,6 +18,7 @@ async def on_ready():
     logger.info("The bot is running.")
 
     await bot.change_presence(
+        status=discord.Status.online,
         activity=discord.Activity(type=discord.ActivityType.listening, name=">help")
     )
     logger.info("The bot's status was successfully set.")
