@@ -106,7 +106,7 @@ class SuperMarselo(commands.Cog):
 
                     word_packs_button = await page.wait_for_selector("button:has-text('Word Packs'), button:has-text('Pacotes de palavras')")
                     await word_packs_button.click()
-                    
+
                     word_language_button = await page.wait_for_selector("button:has-text('Word Language'), button:has-text('Idioma das palavras')")
                     await word_language_button.click()
 
@@ -154,7 +154,7 @@ class SuperMarselo(commands.Cog):
                         logger.info("Searching for new game hosts...", 2)
 
                         await page.get_by_role("button", name="Admin").click()
-                        
+
                         players = []
 
                         # Seleciona todos os players
@@ -197,12 +197,12 @@ class SuperMarselo(commands.Cog):
 
                     scroll_container = await page.wait_for_selector("div[data-radix-scroll-area-viewport]")
                     await scroll_container.evaluate("(el) => { el.scrollTop = el.scrollHeight; }")
-                    
+
                     await page.get_by_role("button", name=re.compile(r"sair da partida|leave match", re.I)).click()
                 finally:
-                        await sleep(5)
-                        await browser.close()
-                        logger.info("Browser closed...", 2)
+                    await sleep(5)
+                    await browser.close()
+                    logger.info("Browser closed...", 2)
         except Exception as e:
             await sleep(5)
             await browser.close()

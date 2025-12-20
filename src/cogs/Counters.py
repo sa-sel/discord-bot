@@ -88,5 +88,6 @@ class Counters(commands.Cog):
         )
         await utils.react_response(response, ["🤣", "😝", "😜", "😳"])
 
+
 def setup(bot):
     bot.add_cog(Counters(bot))
