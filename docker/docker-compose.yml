@@ -1,0 +1,14 @@
+version: '3.9'
+
+services:
+  a-voz-da-sasel-discord-bot:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    image: sa-sel-discord-bot:latest
+    container_name: a-voz-da-sasel
+    env_file:
+      - ./a-voz-da-sasel.env
+    volumes:
+      - ./a-voz-da-sasel.credentials.json:/discord-bot/credentials.json:ro
+    restart: unless_stopped
